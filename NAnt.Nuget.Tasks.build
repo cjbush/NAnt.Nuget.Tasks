@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://nant.sf.net/release/0.92/nant.xsd" name="NAnt.NuGet.Tasks" default="build">
+  <property name="project.config" value="release" />
+  <property name="basedir" value="${project::get-base-directory()}" />
+  <property name="bindir" value="${basedir}/bin" />
+  <property name="bootstrap" value="${bindir}/bootstrap" />
+  <property name="out.dir" value="${bindir}/release" />
+  <property name="name" value="${project::get-name()}" />
+
+  <target name="init">
+    <mkdir dir="${bindir}" />
+    <mkdir dir="${bootstrap}" />
+  </target>
+
+  <target name="clean">
+    <delete dir="${bindir}" />
+  </target>
+
+  <target name="build-bootstrap" depends="init">
+    <csc target="library" output="${bootstrap}/NAnt.Nuget.Tasks.dll">
+      <references basedir="${basedir}/packages">
+        <include name="**net40/*.dll" />
+        <include name="**net40-Client/*.dll" />
+        <include name="../tools/NAnt/NAnt.Core.dll" />
+        <include name="Microsoft.Build.dll" asis="true"/>
+        <include name="System.ComponentModel.DataAnnotations.dll" asis="true" />
+      </references>
+      <sources basedir="${basedir}/src">
+        <include name="**/*.cs" />
+      </sources>
+      <nowarn>
+        <warning number="1591" /> <!-- do not report warnings for missing XML comments -->
+      </nowarn>
+    </csc>
+    <fileset id="references" basedir="${basedir}/packages">
+      <include name="**net40/*.dll" />
+      <include name="**net40-Client/*.dll" />
+      <include name="../tools/NAnt/NAnt.Core.dll" />
+    </fileset>
+    <copy todir="${bootstrap}" flatten="true">
+      <fileset basedir="${basedir}/packages">
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="build" depends="build-bootstrap">
+    <loadtasks assembly="${bootstrap}/NAnt.Nuget.Tasks.dll" />
+    <nuget-update solution="${basedir}/NAnt.Nuget.Tasks.sln" />
+
+    <csc target="library" output="${out.dir}/NAnt.NuGet.Tasks.dll" doc="${out.dir}/NAnt.NuGet.Tasks.xml">
+      <references basedir="${basedir}/packages">
+        <include name="**net40/*.dll" />
+        <include name="**net40-Client/*.dll" />
+        <include name="../tools/NAnt/NAnt.Core.dll" />
+        <include name="Microsoft.Build.dll" asis="true"/>
+        <include name="System.ComponentModel.DataAnnotations.dll" asis="true" />
+      </references>
+      <sources basedir="${basedir}/src">
+        <include name="**/*.cs" />
+      </sources>
+      <nowarn>
+        <warning number="1591" />
+        <warning number="1658" />
+        <!-- do not report warnings for missing XML comments -->
+      </nowarn>
+    </csc>
+
+    <nuget-pack id="NAnt.NuGet" version="1.0" title="NAnt NuGet Tasks" authors="alxandr" owners="alxandr" outdir="${out.dir}/nuget" property="nuget.package">
+      <description>Automatically update, pack and publish NuGet packages from NAnt.</description>
+      <content type="lib" framework="net40" basedir="${out.dir}">
+        <include name="*.*" />
+      </content>
+      <framework-assemblies>
+        <assembly name="System" />
+        <assembly name="Microsoft.Build" />
+        <assembly name="System.ComponentModel.DataAnnotations" />
+      </framework-assemblies>
+      <dependencies>
+        <dependency id="NuGet.Core" version="2.1.0" />
+      </dependencies>
+    </nuget-pack>
+
+    <nuget-publish>
+      <packages>
+        <include name="${nuget.package}" />
+      </packages>
+      <feeds>
+        <local-feed path="C:\.nuget\.local\.feed" />
+        <!-- <server-feed apikey-file="C:\.nuget\api.key" /> tested to be working -->
+      </feeds>
+    </nuget-publish>
+  </target>
+</project>
