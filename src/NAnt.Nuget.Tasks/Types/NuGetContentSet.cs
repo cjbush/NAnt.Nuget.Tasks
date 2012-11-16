@@ -55,7 +55,7 @@ namespace NAnt.NuGet.Tasks.Types
             set { _target = value; }
         }
 
-        [TaskAttribute("framework", Required = true), StringValidator(AllowEmpty = false)]
+        [TaskAttribute("framework"), StringValidator(AllowEmpty = false)]
         public string FrameworkName
         {
             get { return _frameworkName; }

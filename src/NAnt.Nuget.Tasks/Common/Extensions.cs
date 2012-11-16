@@ -12,7 +12,10 @@ namespace NAnt.NuGet.Tasks.Common
     {
         public static string GetTarget(this NuGetContentSet contentSet)
         {
-            return Path.Combine(contentSet.Type.GetTarget(), contentSet.FrameworkName);
+            string frameWorkName = contentSet.FrameworkName;
+            if (!String.IsNullOrWhiteSpace(frameWorkName))
+                return Path.Combine(contentSet.Type.GetTarget(), frameWorkName);
+            return contentSet.Type.GetTarget();
         }
 
         public static string GetTarget(this ContentTarget target)
