@@ -93,6 +93,7 @@ namespace NAnt.NuGet.Tasks.Tasks
             };
 
             Project.DataTypeReferences.Add(ReferenceId, deps);
+            Log(Level.Info, "Found {0} dependencies", deps.Dependencies.Length);
         }
 
         private NuGetDependency GetDependency(PackageDependency dep)

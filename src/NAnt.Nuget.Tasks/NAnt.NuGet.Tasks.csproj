@@ -60,6 +60,7 @@
     <Compile Include="Common\ReadOnlyPackageRepository.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tasks\NugetGetDependenciesTask.cs" />
+    <Compile Include="Tasks\NugetGetFilesTask.cs" />
     <Compile Include="Tasks\NugetPackTask.cs" />
     <Compile Include="Tasks\NugetPublishTask.cs" />
     <Compile Include="Tasks\NugetUpdateTask.cs" />

@@ -45,12 +45,19 @@
 
   <target name="build" depends="build-bootstrap">
     <loadtasks assembly="${bootstrap}/NAnt.Nuget.Tasks.dll" />
+    
     <nuget-update solution-dir="${basedir}" />
+
+    <nuget-get-dependencies solution-dir="${basedir}" project-dir="${basedir}/src/NAnt.NuGet.Tasks/" id="nuget.dependencies" allow-newer="true" />
+
+    <nuget-get-files solution-dir="${basedir}" files-property="nuget.files" references-property="nuget.references" framework="net45">
+      <dependencies refid="nuget.dependencies" />
+    </nuget-get-files>
 
     <csc target="library" output="${out.dir}/NAnt.NuGet.Tasks.dll" doc="${out.dir}/NAnt.NuGet.Tasks.xml">
       <references basedir="${basedir}/packages">
-        <include name="**net40/*.dll" />
-        <include name="**net40-Client/*.dll" />
+        <patternset refid="nuget.references" />
+        <!--<include name="${nuget.references}" />-->
         <include name="../tools/NAnt/NAnt.Core.dll" />
         <include name="Microsoft.Build.dll" asis="true"/>
         <include name="System.ComponentModel.DataAnnotations.dll" asis="true" />
@@ -64,8 +71,6 @@
         <!-- do not report warnings for missing XML comments -->
       </nowarn>
     </csc>
-
-    <nuget-get-dependencies solution-dir="${basedir}" project-dir="${basedir}/src/NAnt.NuGet.Tasks/" id="nuget.dependencies" allow-newer="true" />
 
     <nuget-pack 
       id="NAnt.NuGet"
@@ -84,9 +89,6 @@
         <assembly name="Microsoft.Build" />
         <assembly name="System.ComponentModel.DataAnnotations" />
       </framework-assemblies>
-      <!--<dependencies>
-        <dependency id="NuGet.Core" version="2.1.0" />
-      </dependencies>-->
       <dependencies refid="nuget.dependencies" />
     </nuget-pack>
 
@@ -99,5 +101,11 @@
         <!-- <server-feed apikey-file="C:\.nuget\api.key" /> tested to be working -->
       </feeds>
     </nuget-publish>
+
+    <copy todir="${out.dir}" flatten="true">
+      <fileset>
+        <patternset refid="nuget.files" />
+      </fileset>
+    </copy>
   </target>
 </project>
