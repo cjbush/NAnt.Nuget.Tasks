@@ -1,6 +1,7 @@
 ﻿using NAnt.Core;
 using NAnt.Core.Attributes;
 using NAnt.NuGet.Tasks.Common;
+using NAnt.NuGet.Tasks.Types;
 using NuGet;
 using System;
 using System.Collections.Generic;
@@ -10,8 +11,8 @@ using System.Text;
 
 namespace NAnt.NuGet.Tasks.Tasks
 {
-    [TaskName("nuget-update")]
-    public class NugetUpdateTask : Task
+    [TaskName("nuget-get-dependencies")]
+    public class NugetGetDependenciesTask : Task
     {
         readonly List<string> _sources = new List<string>();
         readonly List<string> _ids = new List<string>();
@@ -24,14 +25,30 @@ namespace NAnt.NuGet.Tasks.Tasks
         [TaskAttribute("solution-dir", Required = true)]
         public DirectoryInfo SolutionDir { get; set; }
 
+        [TaskAttribute("project")]
+        public FileInfo ProjectFile { get; set; }
+
+        [TaskAttribute("project-dir")]
+        public DirectoryInfo ProjectDir { get; set; }
+
+        [TaskAttribute("id"), StringValidator(AllowEmpty = false)]
+        public string ReferenceId { get; set; }
+
         [TaskAttribute("repository", Required = false)]
         public DirectoryInfo RepositoryPath { get; set; }
 
-        [TaskAttribute("prerelease", Required = false), BooleanValidator]
-        public bool Prerelease { get; set; }
+        [TaskAttribute("allow-newer"), BooleanValidator]
+        public bool AllowNewer { get; set; }
 
-        [TaskAttribute("safe", Required = false), BooleanValidator]
-        public bool Safe { get; set; }
+        private ISettings DefaultSettings
+        {
+            get { return Settings.LoadDefaultSettings(_fileSystem); }
+        }
+
+        private string AbsoluteRepositoryPath
+        {
+            get { return RepositoryPath != null ? RepositoryPath.FullName : null; }
+        }
 
         public ICollection<string> Source
         {
@@ -45,50 +62,56 @@ namespace NAnt.NuGet.Tasks.Tasks
 
         protected override void ExecuteTask()
         {
+            if (ProjectFile == null && ProjectDir == null)
+                throw new ValidationException("Either project or project-dir must be set on <nuget-get-dependencies />.");
+
             string dir = SolutionDir.FullName;
             _fileSystem = new PhysicalFileSystem(dir);
+
+            string projectDir = ProjectFile == null ? ProjectDir.FullName : ProjectFile.Directory.FullName;
 
             RepositoryFactory = new PackageRepositoryFactory();
             SourceProvider = new PackageSourceProvider(new Settings(_fileSystem));
 
-            UpdateAllPackages(dir);
-        }
-
-        void UpdateAllPackages(string solutionDir)
-        {
-            Log(Level.Debug, "Scanning for projects");
-
-            // Search recursively for all packages.config files
-            var packagesConfigFiles = Directory.GetFiles(solutionDir, Constants.PackageReferenceFile, SearchOption.AllDirectories);
-            var projects = packagesConfigFiles.Select(GetProject)
+            var packagesConfigFiles = Directory.GetFiles(projectDir, Constants.PackageReferenceFile, SearchOption.AllDirectories);
+            var project = packagesConfigFiles.Select(GetProject)
                 .Where(p => p.Project != null)
-                .ToList();
+                .SingleOrDefault();
 
-            if (projects.Count == 0)
+            if (project == null)
             {
                 throw new BuildException("No project found", Location);
             }
 
-            string repositoryPath = GetRepositoryPathFromSolution(solutionDir);
+            string repositoryPath = GetRepositoryPathFromSolution(dir);
             IPackageRepository sourceRepository = AggregateRepositoryHelper.CreateAggregateRepositoryFromSources(RepositoryFactory, SourceProvider, Source);
 
-            foreach (var project in projects)
+            var references = GetReferences(project.PackagesConfigPath, project.Project, repositoryPath, sourceRepository);
+            var deps = new NuGetDependencies
             {
-                try
-                {
-                    UpdatePackages(project.PackagesConfigPath, project.Project, repositoryPath, sourceRepository);
-                }
-                catch (Exception e)
-                {
-                    Log(Level.Error, e.Message);
-                }
-            }
+                Dependencies = references.Select(GetDependency).ToArray()
+            };
+
+            Project.DataTypeReferences.Add(ReferenceId, deps);
         }
 
-        private void UpdatePackages(string packagesConfigPath, IMSBuildProjectSystem project = null, string repositoryPath = null, IPackageRepository sourceRepository = null)
+        private NuGetDependency GetDependency(PackageDependency dep)
+        {
+            if (AllowNewer)
+            {
+                return new NuGetDependency
+                {
+                    Id = dep.Id,
+                    MinVersion = dep.VersionSpec.MinVersion.ToString()
+                };
+            }
+            return dep;
+        }
+
+        private IEnumerable<PackageDependency> GetReferences(string packagesConfigPath, IMSBuildProjectSystem project = null, string repositoryPath = null, IPackageRepository sourceRepository = null)
         {
             // Get the msbuild project
-            project = project ?? GetMSBuildProject(packagesConfigPath);
+            project = project ?? NugetUpdateTask.GetMSBuildProject(packagesConfigPath);
 
             // Resolve the repository path
             repositoryPath = repositoryPath ?? GetRepositoryPath(project.Root);
@@ -102,12 +125,10 @@ namespace NAnt.NuGet.Tasks.Tasks
             sourceRepository = sourceRepository ?? AggregateRepositoryHelper.CreateAggregateRepositoryFromSources(RepositoryFactory, SourceProvider, Source);
             IPackageConstraintProvider constraintProvider = localRepository;
 
-            Log(Level.Info, "Updating project {0}", project.ProjectName);
-            UpdatePackages(localRepository, sharedRepositoryFileSystem, sharedPackageRepository, sourceRepository, constraintProvider, pathResolver, project);
-            project.Save();
+            return GetReferences(localRepository, sharedRepositoryFileSystem, sharedPackageRepository, sourceRepository, constraintProvider, pathResolver, project);
         }
 
-        internal void UpdatePackages(IPackageRepository localRepository,
+        internal IEnumerable<PackageDependency> GetReferences(IPackageRepository localRepository,
                                      IFileSystem sharedRepositoryFileSystem,
                                      ISharedPackageRepository sharedPackageRepository,
                                      IPackageRepository sourceRepository,
@@ -130,7 +151,7 @@ namespace NAnt.NuGet.Tasks.Tasks
                 PackageExtractor.InstallPackage(packageManager, eventArgs.Package);
             };
 
-            projectManager.Logger = project.Logger = new VerboseLogger(this);
+            projectManager.Logger = project.Logger = new NugetUpdateTask.VerboseLogger(this);
 
             using (sourceRepository.StartOperation(RepositoryOperationNames.Update))
             {
@@ -138,26 +159,10 @@ namespace NAnt.NuGet.Tasks.Tasks
                 {
                     if (localRepository.Exists(package.Id))
                     {
-                        try
+                        if (projectManager.IsInstalled(package))
                         {
-                            if(projectManager.IsInstalled(package))
-                                Log(Level.Debug, "Found installed package {0}", package.Id);
-                            // If the user explicitly allows prerelease or if the package being updated is prerelease we'll include prerelease versions in our list of packages
-                            // being considered for an update.
-                            bool allowPrerelease = Prerelease || !package.IsReleaseVersion();
-                            if (Safe)
-                            {
-                                IVersionSpec safeRange = VersionUtility.GetSafeRange(package.Version);
-                                projectManager.UpdatePackageReference(package.Id, safeRange, updateDependencies: true, allowPrereleaseVersions: allowPrerelease);
-                            }
-                            else
-                            {
-                                projectManager.UpdatePackageReference(package.Id, version: null, updateDependencies: true, allowPrereleaseVersions: allowPrerelease);
-                            }
-                        }
-                        catch (InvalidOperationException e)
-                        {
-                            Log(Level.Warning, e.Message);
+                            Log(Level.Debug, "Found installed package {0} version {1}", package.Id, package.Version);
+                            yield return new PackageDependency(package.Id, new VersionSpec(package.Version));
                         }
                     }
                 }
@@ -184,15 +189,17 @@ namespace NAnt.NuGet.Tasks.Tasks
             return packageSorter.GetPackagesByDependencyOrder(new ReadOnlyPackageRepository(packages)).Reverse();
         }
 
-        private static ProjectPair GetProject(string packagesConfigPath)
+        private string GetRepositoryPathFromSolution(string solutionDir)
         {
-            IMSBuildProjectSystem msBuildProjectSystem = null;
-            msBuildProjectSystem = GetMSBuildProject(packagesConfigPath);
-            return new ProjectPair
+            string packagesDir = AbsoluteRepositoryPath;
+
+            if (String.IsNullOrEmpty(packagesDir) &&
+                !String.IsNullOrEmpty(solutionDir))
             {
-                PackagesConfigPath = packagesConfigPath,
-                Project = msBuildProjectSystem
-            };
+                packagesDir = Path.Combine(solutionDir, NuGetConstants.PackagesDirectoryName);
+            }
+
+            return GetPackagesDir(packagesDir);
         }
 
         private string GetRepositoryPath(string projectRoot)
@@ -210,29 +217,6 @@ namespace NAnt.NuGet.Tasks.Tasks
 
                     return GetRepositoryPathFromSolution(solutionDir);
                 }
-            }
-
-            return GetPackagesDir(packagesDir);
-        }
-
-        private ISettings DefaultSettings
-        {
-            get { return Settings.LoadDefaultSettings(_fileSystem); }
-        }
-
-        private string AbsoluteRepositoryPath
-        {
-            get { return RepositoryPath != null ? RepositoryPath.FullName : null; }
-        }
-
-        private string GetRepositoryPathFromSolution(string solutionDir)
-        {
-            string packagesDir = AbsoluteRepositoryPath;
-
-            if (String.IsNullOrEmpty(packagesDir) &&
-                !String.IsNullOrEmpty(solutionDir))
-            {
-                packagesDir = Path.Combine(solutionDir, NuGetConstants.PackagesDirectoryName);
             }
 
             return GetPackagesDir(packagesDir);
@@ -259,49 +243,15 @@ namespace NAnt.NuGet.Tasks.Tasks
             throw new BuildException("Unable to locate packages folder", Location);
         }
 
-        internal static IMSBuildProjectSystem GetMSBuildProject(string packageReferenceFilePath)
+        private static NugetUpdateTask.ProjectPair GetProject(string packagesConfigPath)
         {
-            // Try to locate the project file associated with this packages.config file
-            string directory = Path.GetDirectoryName(packageReferenceFilePath);
-            string projectFile;
-            if (ProjectHelper.TryGetProjectFile(directory, out projectFile))
+            IMSBuildProjectSystem msBuildProjectSystem = null;
+            msBuildProjectSystem = NugetUpdateTask.GetMSBuildProject(packagesConfigPath);
+            return new NugetUpdateTask.ProjectPair
             {
-                return new MSBuildProjectSystem(projectFile);
-            }
-
-            return null;
-        }
-
-        internal class ProjectPair
-        {
-            public string PackagesConfigPath { get; set; }
-            public IMSBuildProjectSystem Project { get; set; }
-        }
-
-        internal class VerboseLogger : ILogger
-        {
-            Task _task;
-            public VerboseLogger(Task task)
-            {
-                _task = task;
-            }
-
-            public void Log(MessageLevel level, string message, params object[] args)
-            {
-                _task.Log(TranslateLevel(level), "- " + message, args);
-            }
-
-            static Level TranslateLevel(MessageLevel level)
-            {
-                switch (level)
-                {
-                    case MessageLevel.Debug: return Level.Debug;
-                    case MessageLevel.Error: return Level.Error;
-                    case MessageLevel.Info: return Level.Info;
-                    case MessageLevel.Warning: return Level.Warning;
-                    default: throw new ArgumentException();
-                }
-            }
+                PackagesConfigPath = packagesConfigPath,
+                Project = msBuildProjectSystem
+            };
         }
     }
 }

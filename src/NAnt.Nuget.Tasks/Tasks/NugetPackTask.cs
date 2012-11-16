@@ -37,7 +37,7 @@ namespace NAnt.NuGet.Tasks.Tasks
         [TaskAttribute("property"), StringValidator(AllowEmpty = false)]
         public string Property { get; set; }
 
-        [BuildElement("description", Required = true, ProcessXml = false), StringValidator(AllowEmpty = false)]
+        [TaskAttribute("description", Required = true), StringValidator(AllowEmpty = false)]
         public string Description { get; set; }
 
         [BuildElementArray("content", Required = true)]
@@ -49,12 +49,6 @@ namespace NAnt.NuGet.Tasks.Tasks
         [BuildElementArray("dependencies")]
         public NuGetDependencies[] Dependencies { get; set; }
 
-
-        protected override void Initialize()
-        {
-            base.Initialize();
-            Description = XmlNode.ChildNodes.Cast<System.Xml.XmlNode>().Single(n => n.Name == "description").InnerText;
-        }
 
         protected override void ExecuteTask()
         {
@@ -75,7 +69,7 @@ namespace NAnt.NuGet.Tasks.Tasks
                 {
                     string framework = dpg.TargetFramework;
                     if (String.IsNullOrWhiteSpace(framework))
-                        framework = "!!-.-!!";
+                        framework = "";
 
                     List<NuGetDependency> list;
                     if (!groups.TryGetValue(framework, out list))
@@ -86,12 +80,8 @@ namespace NAnt.NuGet.Tasks.Tasks
 
                 foreach (var g in groups)
                 {
-                    FrameworkName fn = g.Key == "!!-.-!!" ? null : VersionUtility.ParseFrameworkName(g.Key);
-                    PackageDependencySet ds = new PackageDependencySet(fn, g.Value.Select(v => {
-                        if(String.IsNullOrWhiteSpace(v.Version))
-                            return new PackageDependency(v.Id);
-                        return new PackageDependency(v.Id, new VersionSpec(new SemanticVersion(v.Version)));
-                    }));
+                    FrameworkName fn = g.Key == "" ? null : VersionUtility.ParseFrameworkName(g.Key);
+                    PackageDependencySet ds = new PackageDependencySet(fn, g.Value.Select(v => (PackageDependency)v));
                     pb.DependencySets.Add(ds);
                 }
             }

@@ -10,7 +10,7 @@ namespace NAnt.NuGet.Tasks.Types
 {
     [Serializable]
     [ElementName("nuget-framework-assembly")]
-    public class FrameworkAssembly : Element
+    public class FrameworkAssembly : DataTypeBase
     {
         [TaskAttribute("name", Required = true), StringValidator(AllowEmpty = false)]
         public string FrameworkName { get; set; }

@@ -45,7 +45,7 @@
 
   <target name="build" depends="build-bootstrap">
     <loadtasks assembly="${bootstrap}/NAnt.Nuget.Tasks.dll" />
-    <nuget-update solution="${basedir}/NAnt.Nuget.Tasks.sln" />
+    <nuget-update solution-dir="${basedir}" />
 
     <csc target="library" output="${out.dir}/NAnt.NuGet.Tasks.dll" doc="${out.dir}/NAnt.NuGet.Tasks.xml">
       <references basedir="${basedir}/packages">
@@ -65,8 +65,17 @@
       </nowarn>
     </csc>
 
-    <nuget-pack id="NAnt.NuGet" version="1.0" title="NAnt NuGet Tasks" authors="alxandr" owners="alxandr" outdir="${out.dir}/nuget" property="nuget.package">
-      <description>Automatically update, pack and publish NuGet packages from NAnt.</description>
+    <nuget-get-dependencies solution-dir="${basedir}" project-dir="${basedir}/src/NAnt.NuGet.Tasks/" id="nuget.dependencies" allow-newer="true" />
+
+    <nuget-pack 
+      id="NAnt.NuGet"
+      version="1.1"
+      title="NAnt NuGet Tasks"
+      authors="alxandr"
+      owners="alxandr"
+      outdir="${out.dir}/nuget"
+      description="Automatically update, pack and publish NuGet packages from NAnt."
+      property="nuget.package">
       <content type="lib" framework="net40" basedir="${out.dir}">
         <include name="*.*" />
       </content>
@@ -75,9 +84,10 @@
         <assembly name="Microsoft.Build" />
         <assembly name="System.ComponentModel.DataAnnotations" />
       </framework-assemblies>
-      <dependencies>
+      <!--<dependencies>
         <dependency id="NuGet.Core" version="2.1.0" />
-      </dependencies>
+      </dependencies>-->
+      <dependencies refid="nuget.dependencies" />
     </nuget-pack>
 
     <nuget-publish>
