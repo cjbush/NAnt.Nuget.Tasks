@@ -31,6 +31,15 @@ namespace NAnt.NuGet.Tasks.Tasks
         [TaskAttribute("owners", Required = true), StringValidator(AllowEmpty = false)]
         public string Owners { get; set; }
 
+        [TaskAttribute("icon"), StringValidator(AllowEmpty = false)]
+        public Uri Icon { get; set; }
+
+        [TaskAttribute("url"), StringValidator(AllowEmpty = false)]
+        public Uri Url { get; set; }
+
+        [TaskAttribute("license"), StringValidator(AllowEmpty = false)]
+        public Uri License { get; set; }
+
         [TaskAttribute("outdir", Required = true)]
         public DirectoryInfo OutDir { get; set; }
 
@@ -39,6 +48,15 @@ namespace NAnt.NuGet.Tasks.Tasks
 
         [TaskAttribute("description", Required = true), StringValidator(AllowEmpty = false)]
         public string Description { get; set; }
+
+        [TaskAttribute("summary"), StringValidator(AllowEmpty = false)]
+        public string Summary { get; set; }
+
+        [TaskAttribute("copyright"), StringValidator(AllowEmpty = false)]
+        public string Copyright { get; set; }
+
+        [TaskAttribute("release-notes"), StringValidator(AllowEmpty = false)]
+        public string ReleaseNotes { get; set; }
 
         [BuildElementArray("content", Required = true)]
         public NuGetContentSet[] ContentSets { get; set; }
@@ -85,6 +103,18 @@ namespace NAnt.NuGet.Tasks.Tasks
                     pb.DependencySets.Add(ds);
                 }
             }
+            if (Icon != null)
+                pb.IconUrl = Icon;
+            if (Url != null)
+                pb.ProjectUrl = Url;
+            if (License != null)
+                pb.LicenseUrl = License;
+            if (Summary != null)
+                pb.Summary = Summary;
+            if (Copyright != null)
+                pb.Copyright = Copyright;
+            if (ReleaseNotes != null)
+                pb.ReleaseNotes = ReleaseNotes;
 
             List<ManifestFile> files = new List<ManifestFile>();
             foreach (var contentSet in ContentSets)

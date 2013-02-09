@@ -74,7 +74,7 @@
 
     <nuget-pack 
       id="NAnt.NuGet"
-      version="1.1"
+      version="1.2"
       title="NAnt NuGet Tasks"
       authors="alxandr"
       owners="alxandr"
