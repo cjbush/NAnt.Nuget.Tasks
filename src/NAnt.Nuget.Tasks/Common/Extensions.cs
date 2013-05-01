@@ -24,7 +24,7 @@ namespace NAnt.NuGet.Tasks.Common
             {
                 case ContentTarget.Content: return "content";
                 case ContentTarget.Lib: return "lib";
-                case ContentTarget.Src: return "content";
+                case ContentTarget.Src: return "src";
                 case ContentTarget.Tools: return "tools";
                 default: throw new ArgumentException();
             }

@@ -120,7 +120,7 @@ namespace NAnt.NuGet.Tasks.Types
         protected internal override IPackagePushLocation GetPushLocation()
         {
             if (ServerPath == null)
-                ServerPath = new Uri("http://nuget.org");
+                ServerPath = new Uri("https://nuget.org");
             PackageServer server = new PackageServer(ServerPath.ToString(), "NAnt.NuGet");
             string apiKey = ApiKey;
             if (apiKey == null && ApiKeyFile != null)
@@ -146,7 +146,7 @@ namespace NAnt.NuGet.Tasks.Types
 
             public void Push(string zipPackagePath)
             {
-                _server.PushPackage(_apiKey, () => File.OpenRead(zipPackagePath), 0);
+                _server.PushPackage(_apiKey, File.OpenRead(zipPackagePath), 0);
             }
 
             public string Name

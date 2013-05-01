@@ -58,6 +58,9 @@ namespace NAnt.NuGet.Tasks.Tasks
         [TaskAttribute("release-notes"), StringValidator(AllowEmpty = false)]
         public string ReleaseNotes { get; set; }
 
+        [BuildElement("symbols")]
+        public NuGetSymbolsContent SymbolsContent { get; set; }
+
         [BuildElementArray("content", Required = true)]
         public NuGetContentSet[] ContentSets { get; set; }
 
@@ -68,7 +71,7 @@ namespace NAnt.NuGet.Tasks.Tasks
         public NuGetDependencies[] Dependencies { get; set; }
 
 
-        protected override void ExecuteTask()
+        private PackageBuilder CreatePackage()
         {
             PackageBuilder pb = new PackageBuilder();
             pb.Id = Id;
@@ -116,6 +119,27 @@ namespace NAnt.NuGet.Tasks.Tasks
             if (ReleaseNotes != null)
                 pb.ReleaseNotes = ReleaseNotes;
 
+            return pb;
+        }
+
+        private static string MakeRelativePath(string basePath, string toPath)
+        {
+            if (string.IsNullOrEmpty(basePath)) throw new ArgumentNullException("basePath");
+            if (string.IsNullOrEmpty(toPath)) throw new ArgumentNullException("toPath");
+
+            Uri fromUri = new Uri(basePath);
+            Uri toUri = new Uri(toPath);
+
+            Uri relUri = fromUri.MakeRelativeUri(toUri);
+            string relPath = Uri.UnescapeDataString(relUri.ToString());
+
+            return relPath.Replace('/', Path.DirectorySeparatorChar);
+        }
+
+        protected override void ExecuteTask()
+        {
+            var pb = CreatePackage();
+
             List<ManifestFile> files = new List<ManifestFile>();
             foreach (var contentSet in ContentSets)
             {
@@ -141,6 +165,35 @@ namespace NAnt.NuGet.Tasks.Tasks
             Log(Level.Info, "Package created at '{0}'", savePath);
             if (!String.IsNullOrWhiteSpace(Property))
                 Properties.Add(Property, savePath);
+
+            if (SymbolsContent != null)
+            {
+                pb = CreatePackage();
+
+                files = new List<ManifestFile>();
+                foreach (var contentSet in SymbolsContent.ContentSets)
+                {
+                    var target = contentSet.GetTarget();
+                    var basePath = contentSet.BaseDirectory;
+                    foreach (var file in contentSet.FileNames)
+                    {
+                        ManifestFile mf = new ManifestFile();
+                        mf.Source = file;
+                        mf.Target = Path.Combine(target, MakeRelativePath(basePath.FullName + '\\', file));
+                        Log(Level.Verbose, "Added file '{0}' -> '{1}' to symbols package.", file, mf.Target);
+                        files.Add(mf);
+                    }
+                }
+                pb.PopulateFiles(Project.BaseDirectory, files);
+
+                savePath = Path.Combine(OutDir.FullName, pb.Id + "-" + pb.Version.ToString() + ".symbols.nupkg");
+                using (FileStream fs = File.Open(savePath, FileMode.Create, FileAccess.ReadWrite))
+                    pb.Save(fs);
+
+                Log(Level.Info, "Symbols package created at '{0}'", savePath);
+                if (!String.IsNullOrWhiteSpace(SymbolsContent.Property))
+                    Properties.Add(SymbolsContent.Property, savePath);
+            }
         }
     }
 }

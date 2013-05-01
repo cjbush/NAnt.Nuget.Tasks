@@ -52,6 +52,8 @@ namespace NAnt.NuGet.Tasks.Common
                                 });
         }
 
+
+
         public dynamic GetPropertyValue(string propertyName)
         {
             return Project.GetPropertyValue(propertyName);
@@ -124,6 +126,22 @@ namespace NAnt.NuGet.Tasks.Common
         private static Project GetProject(string projectFile)
         {
             return ProjectCollection.GlobalProjectCollection.GetLoadedProjects(projectFile).FirstOrDefault() ?? new Project(projectFile);
+        }
+
+
+        public void AddImport(string targetPath, ProjectImportLocation location)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool FileExistsInProject(string path)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void RemoveImport(string targetPath)
+        {
+            throw new NotImplementedException();
         }
     }
 }

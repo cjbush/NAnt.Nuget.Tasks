@@ -291,6 +291,11 @@ namespace NAnt.NuGet.Tasks.Tasks
                 _task.Log(TranslateLevel(level), "- " + message, args);
             }
 
+            public FileConflictResolution ResolveFileConflict(string message)
+            {
+                throw new NotImplementedException();
+            }
+
             static Level TranslateLevel(MessageLevel level)
             {
                 switch (level)

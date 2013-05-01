@@ -34,9 +34,9 @@
     <Reference Include="NAnt.Core">
       <HintPath>..\..\tools\nant\NAnt.Core.dll</HintPath>
     </Reference>
-    <Reference Include="NuGet.Core, Version=2.1.31002.9028, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+    <Reference Include="NuGet.Core, Version=2.5.40416.9020, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Nuget.Core.2.1.0\lib\net40-Client\NuGet.Core.dll</HintPath>
+      <HintPath>..\..\packages\NuGet.Core.2.5.0\lib\net40-Client\NuGet.Core.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
@@ -68,13 +68,13 @@
     <Compile Include="Types\NuGetContentSet.cs" />
     <Compile Include="Types\NuGetDependencies.cs" />
     <Compile Include="Types\NuGetFeedSet.cs" />
+    <Compile Include="Types\NuGetSymbolsContent.cs" />
     <Compile Include="Validators\SemanticVersionValidator.cs" />
     <Compile Include="Validators\UriValidator.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

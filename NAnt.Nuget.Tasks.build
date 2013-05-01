@@ -5,6 +5,7 @@
   <property name="bindir" value="${basedir}/bin" />
   <property name="bootstrap" value="${bindir}/bootstrap" />
   <property name="out.dir" value="${bindir}/release" />
+  <property name="sources.dir" value="${bindir}/sources" />
   <property name="name" value="${project::get-name()}" />
 
   <target name="init">
@@ -72,9 +73,27 @@
       </nowarn>
     </csc>
 
+    <csc target="library" output="${sources.dir}/NAnt.NuGet.Tasks.dll" doc="${sources.dir}/NAnt.NuGet.Tasks.xml" debug="Full">
+      <references basedir="${basedir}/packages">
+        <patternset refid="nuget.references" />
+        <!--<include name="${nuget.references}" />-->
+        <include name="../tools/NAnt/NAnt.Core.dll" />
+        <include name="Microsoft.Build.dll" asis="true"/>
+        <include name="System.ComponentModel.DataAnnotations.dll" asis="true" />
+      </references>
+      <sources basedir="${basedir}/src">
+        <include name="**/*.cs" />
+      </sources>
+      <nowarn>
+        <warning number="1591" />
+        <warning number="1658" />
+        <!-- do not report warnings for missing XML comments -->
+      </nowarn>
+    </csc>
+
     <nuget-pack 
       id="NAnt.NuGet"
-      version="1.2"
+      version="1.3"
       title="NAnt NuGet Tasks"
       authors="alxandr"
       owners="alxandr"
@@ -90,6 +109,17 @@
         <assembly name="System.ComponentModel.DataAnnotations" />
       </framework-assemblies>
       <dependencies refid="nuget.dependencies" />
+      <symbols>
+        <sources type="src" framework="net40" basedir="${basedir}/src">
+          <include name="**/*.cs" />
+          <exclude name="**/obj/**" />
+        </sources>
+        <sources type="lib" framework="net40" basedir="${sources.dir}">
+          <include name="*.dll" />
+          <include name="*.xml" />
+          <include name="*.pdb" />
+        </sources>
+      </symbols>
     </nuget-pack>
 
     <nuget-publish>
